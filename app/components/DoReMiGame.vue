@@ -5,6 +5,12 @@ import { Text3D, useTexture } from '@tresjs/cientos'
 import { useVoiceControl } from '~/composables/useVoiceControl'
 import type { Texture } from 'three'
 
+const config = useRuntimeConfig()
+
+const fontPath = computed(() => {
+  return `${config.app.baseURL}fonts/font.json`
+})
+
 const props = defineProps<{
   isVictory: boolean
   gameStarted: boolean
@@ -29,7 +35,7 @@ const damp = (current: number, target: number, lambda: number, delta: number) =>
 
 const { note, frequency, volume } = useVoiceControl()
 
-const { state: texture } = await useTexture('/textures/brick_diffuse.jpg')
+const { state: texture } = await useTexture(`${config.app.baseURL}textures/brick_diffuse.jpg`)
 if (texture.value) {
   texture.value.wrapS = RepeatWrapping
   texture.value.wrapT = RepeatWrapping
@@ -345,7 +351,7 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
                 :position="wall.textPosition"
                 :text="`${wall.note}${wall.octave}`"
                 :color="wall.color"
-                font="/fonts/font.json"
+                :font="fontPath"
               >
                 <TresMeshStandardMaterial
                   :roughness="0.2"
