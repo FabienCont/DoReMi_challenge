@@ -4,7 +4,6 @@ import { BasicShadowMap, SRGBColorSpace, NoToneMapping, RepeatWrapping, MathUtil
 import { Text3D, useTexture } from '@tresjs/cientos'
 import { useVoiceControl } from '~/composables/useVoiceControl'
 import type { Texture } from 'three'
-import { BoxGeometry } from 'three'
 
 const props = defineProps<{
   isVictory: boolean
@@ -38,8 +37,7 @@ if (texture.value) {
 
 const textureMap = new Map<string, Texture>()
 const getRepeatedTexture = (w?: number, h?: number) => {
-  
-  if(!w || !h) return null
+  if (!w || !h) return null
 
   const key = `${w.toFixed(1)}_${h.toFixed(1)}`
   if (textureMap.has(key)) return textureMap.get(key)

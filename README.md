@@ -2,6 +2,8 @@
 
 A DoReMi challenge website - An interactive 3D web game where you control a ball's position using your voice pitch.
 
+[**Live Demo**](https://fabiencont.github.io/DoReMi_challenge/)
+
 ## 🎵 How it works
 
 The website uses microphone input to analyze your singing pitch. 
