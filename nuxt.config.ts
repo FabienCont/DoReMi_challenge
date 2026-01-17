@@ -1,0 +1,40 @@
+// https://nuxt.com/docs/api/configuration/nuxt-config
+export default defineNuxtConfig({
+
+  modules: [
+    '@nuxt/eslint',
+    '@nuxt/ui',
+    '@tresjs/nuxt',
+    '@nuxt/fonts'
+  ],
+  ssr: false,
+
+  devtools: {
+    enabled: true
+  },
+
+  css: ['~/assets/css/main.css'],
+
+  routeRules: {
+    '/': { prerender: true }
+  },
+
+  compatibilityDate: '2025-01-15',
+
+  nitro: {
+    preset: 'github_pages'
+  },
+
+  eslint: {
+    config: {
+      stylistic: {
+        commaDangle: 'never',
+        braceStyle: '1tbs'
+      }
+    }
+  },
+
+  tres: {
+    devtools: true
+  }
+})

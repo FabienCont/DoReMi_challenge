@@ -1,0 +1,36 @@
+{
+  "name": "doremi_challenge",
+  "version": "1.0.0",
+  "description": "A DoReMi challenge website - Voice controlled 3D game",
+  "repository": "https://github.com/FabienCont/DoReMi_challenge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.82",
+    "@iconify-json/simple-icons": "^1.2.63",
+    "@nuxt/fonts": "0.12.1",
+    "@nuxt/ui": "^4.3.0",
+    "@tresjs/cientos": "^5.2.3",
+    "@tresjs/core": "^5.3.0",
+    "@tresjs/nuxt": "^5.1.4",
+    "nuxt": "^4.2.2",
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.12.1",
+    "@types/three": "^0.182.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.2.1"
+  },
+  "packageManager": "pnpm@10.26.1"
+}
