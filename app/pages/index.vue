@@ -8,6 +8,8 @@ const { stream, startCamera, stopCamera, cameraActivated } = useCamera()
 const isVictory = ref(false)
 const gameStarted = ref(false)
 const octave = ref(3)
+const graphism = ref(1)
+const showFps = ref(false)
 
 const finishGame = () => {
   isVictory.value = true
@@ -50,12 +52,14 @@ onMounted(async () => {
       <StartMenu
         v-if="!gameStarted && !isVictory"
         v-model:octave="octave"
+        v-model:graphism="graphism"
         :microphone-activated="isListening"
         :camera-activated="cameraActivated"
         @activate-microphone="start"
         @start-game="startGame"
         @activate-camera="activateCamera"
         @deactivate-camera="deactivateCamera"
+        v-model:showFps="showFps"
       />
       <VictoryMenu
         v-if="!gameStarted && isVictory"
@@ -71,6 +75,8 @@ onMounted(async () => {
           :camera-activated="cameraActivated"
           :starting-octave="octave"
           :walls="7"
+          :graphism="graphism"
+          :show-fps="showFps"
           @game-over="finishGame"
         />
       </ClientOnly>

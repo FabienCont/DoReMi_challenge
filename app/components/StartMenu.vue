@@ -2,6 +2,8 @@
 import type { SelectItem } from '@nuxt/ui'
 
 const octave = defineModel<number>('octave')
+const graphism = defineModel<number>('graphism')
+const showFps = defineModel<boolean>('showFps')
 const { cameraActivated, microphoneActivated } = defineProps<{ cameraActivated: boolean, microphoneActivated: boolean }>()
 
 const emits = defineEmits<{
@@ -42,6 +44,17 @@ const items = ref<SelectItem[]>([
     value: 6
   }
 ])
+
+const graphisms = ref<SelectItem[]>([
+  {
+    label: 'Minimalist',
+    value: 1
+  },
+  {
+    label: 'High (not for small devices)',
+    value: 2
+  },
+])
 </script>
 
 <template>
@@ -57,48 +70,28 @@ const items = ref<SelectItem[]>([
         Control the ball height by singing: Low (Do) -> High (Si)
       </p>
 
-      <template
-        v-if="!microphoneActivated"
-      >
+      <template v-if="!microphoneActivated">
         <p>You can not start the game without activating the microphone.</p>
         <div>
-          <UButton
-            label="Activate the microphone"
-            @click="activateMicrophone"
-          />
+          <UButton label="Activate the microphone" @click="activateMicrophone" />
         </div>
       </template>
 
       <template v-if="microphoneActivated">
         <p> Choose your octave:</p>
-        <USelect
-          v-model="octave"
-          class="w-48"
-          :items="items"
-          label="Octave"
-        />
+        <USelect v-model="octave" class="w-64" :items="items" label="Octave" />
+        <p> Choose graphism:</p>
+        <USelect v-model="graphism" class="w-64" :items="graphisms" label="Graphism" />
+        
+        <USwitch v-model="showFps" label="Show FPS" />
+
         <div>
-          <UButton
-            v-if="!cameraActivated"
-            variant="subtle"
-            color="secondary"
-            label="Activate the camera"
-            @click="activateCamera"
-          />
-          <UButton
-            v-else
-            variant="subtle"
-            color="secondary"
-            label="Deactivate the camera"
-            @click="deactivateCamera"
-          />
+          <UButton v-if="!cameraActivated" variant="subtle" color="secondary" label="Activate the camera"
+            @click="activateCamera" />
+          <UButton v-else variant="subtle" color="secondary" label="Deactivate the camera" @click="deactivateCamera" />
         </div>
         <div class="mt-4">
-          <UButton
-            color="secondary"
-            size="xl"
-            @click="startGame"
-          >
+          <UButton color="secondary" size="xl" @click="startGame">
             Start Game
           </UButton>
         </div>
@@ -109,6 +102,6 @@ const items = ref<SelectItem[]>([
 
 <style scoped>
 .header-font {
-    font-family: 'Blue Winter';
+  font-family: 'Blue Winter';
 }
 </style>
