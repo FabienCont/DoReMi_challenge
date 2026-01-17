@@ -53,13 +53,13 @@ onMounted(async () => {
         v-if="!gameStarted && !isVictory"
         v-model:octave="octave"
         v-model:graphism="graphism"
+        v-model:show-fps="showFps"
         :microphone-activated="isListening"
         :camera-activated="cameraActivated"
         @activate-microphone="start"
         @start-game="startGame"
         @activate-camera="activateCamera"
         @deactivate-camera="deactivateCamera"
-        v-model:showFps="showFps"
       />
       <VictoryMenu
         v-if="!gameStarted && isVictory"

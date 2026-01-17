@@ -296,18 +296,35 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
     </template>
     <template #default>
       <div>
-        <FrequencyBar v-if="gameStarted && !isVictory" :frequency="frequency" :note="note" :score="score" />
+        <FrequencyBar
+          v-if="gameStarted && !isVictory"
+          :frequency="frequency"
+          :note="note"
+          :score="score"
+        />
 
         <!-- <DebugInfo v-if="gameStarted && !isVictory" :frequency="frequency" :note="note" :score="score" /> -->
         <FpsGraph v-if="showFps" />
-        <TresCanvas v-bind="gl" window-size @loop="onLoop">
-          <TresPerspectiveCamera :position="cameraPosition" :look-at="cameraLookAt" :far="2000" />
+        <TresCanvas
+          v-bind="gl"
+          window-size
+          @loop="onLoop"
+        >
+          <TresPerspectiveCamera
+            :position="cameraPosition"
+            :look-at="cameraLookAt"
+            :far="2000"
+          />
           <!-- <TresFog color="#000000" :near="10" :far="400" /> -->
           <Sky v-if="!cameraActivated" />
           <template v-if="graphism !== 2">
             <TresMesh :position="[0, -0.8, -50]">
               <TresBoxGeometry :args="[14, 1, 2000]" />
-              <TresMeshStandardMaterial :roughness="0.8" :metalness="0.7" color="grey" />
+              <TresMeshStandardMaterial
+                :roughness="0.8"
+                :metalness="0.7"
+                color="grey"
+              />
             </TresMesh>
           </template>
           <template v-if="graphism === 2">
@@ -315,27 +332,58 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
               <Ocean v-if="!cameraActivated" />
             </Suspense>
           </template>
-          <TresAmbientLight v-if="!cameraActivated" :intensity="1.5" />
-          <TresDirectionalLight :position="[10, 20, 10]" :intensity="1" :cast-shadow="!cameraActivated" />
+          <TresAmbientLight
+            v-if="!cameraActivated"
+            :intensity="1.5"
+          />
+          <TresDirectionalLight
+            :position="[10, 20, 10]"
+            :intensity="1"
+            :cast-shadow="!cameraActivated"
+          />
 
           <!-- Player Ball -->
           <TresMesh :position="[0, ballY, ballZ]">
             <TresSphereGeometry :args="[1, 32, 32]" />
-            <TresMeshPhysicalMaterial :thickness="0.2" :roughness="0.1" :metalness="0.2" :transmission="1.0" />
+            <TresMeshPhysicalMaterial
+              :thickness="0.2"
+              :roughness="0.1"
+              :metalness="0.2"
+              :transmission="1.0"
+            />
             <!-- <TresMeshStandardMaterial color="#4444e4" /> -->
           </TresMesh>
 
           <!-- Walls -->
-          <TresGroup v-for="wall in walls" :key="wall.id" :position="[0, 0, wall.z]">
+          <TresGroup
+            v-for="wall in walls"
+            :key="wall.id"
+            :position="[0, 0, wall.z]"
+          >
             <Suspense>
-              <Text3D center need-updates :bevel-thickness="0.1" :size="2" :position="wall.textPosition"
-                :text="`${wall.note}${wall.octave}`" :color="wall.color" :font="fontPath">
-                <TresMeshStandardMaterial :roughness="0.2" :metalness="0.1" color="#FEEEEE" />
+              <Text3D
+                center
+                need-updates
+                :bevel-thickness="0.1"
+                :size="2"
+                :position="wall.textPosition"
+                :text="`${wall.note}${wall.octave}`"
+                :color="wall.color"
+                :font="fontPath"
+              >
+                <TresMeshStandardMaterial
+                  :roughness="0.2"
+                  :metalness="0.1"
+                  color="#FEEEEE"
+                />
               </Text3D>
             </Suspense>
 
             <!-- Middle Glass Part with Hole -->
-            <TresMesh :position="wall.middle.position" :geometry="wall.middle.geometry">
+            <TresMesh
+              :position="wall.middle.position"
+              :geometry="wall.middle.geometry"
+            >
               <MeshGlassMaterial />
             </TresMesh>
 
