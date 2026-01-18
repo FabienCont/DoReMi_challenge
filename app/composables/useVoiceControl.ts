@@ -29,7 +29,21 @@ export const useVoiceControl = () => {
       const source = audioContext.createMediaStreamSource(microphoneStream)
       analyser = audioContext.createAnalyser()
       analyser.fftSize = 2048
-      source.connect(analyser)
+
+      // Create filters to isolate voice frequencies
+      const lowPassFilter = audioContext.createBiquadFilter()
+      lowPassFilter.type = 'lowpass'
+      lowPassFilter.frequency.value = 1200 // Cutoff high frequency noise
+
+      const highPassFilter = audioContext.createBiquadFilter()
+      highPassFilter.type = 'highpass'
+      highPassFilter.frequency.value = 85 // Cutoff low frequency rumble
+
+      // Connect chain: Source -> HighPass -> LowPass -> Analyser
+      source.connect(highPassFilter)
+      highPassFilter.connect(lowPassFilter)
+      lowPassFilter.connect(analyser)
+
       buffer = new Float32Array(BUFLEN)
 
       isListening.value = true
