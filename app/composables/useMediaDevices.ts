@@ -18,7 +18,7 @@ export const useMediaDevices = () => {
     try {
       microphoneStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: {
         echoCancellation: true,
-        noiseSuppression: true,
+        noiseSuppression: true
       } })
     } catch {
       useToast().add({ title: 'Microphone access denied or not available.', color: 'error' })
