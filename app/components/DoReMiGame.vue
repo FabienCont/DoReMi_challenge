@@ -238,7 +238,7 @@ const onLoop = ({ delta }: { delta: number }) => {
   }
 
   // Smooth lerp
-  ballY.value = damp(ballY.value, targetY, 6, delta)
+  ballY.value = damp(ballY.value, targetY, 8, delta)
 
   // Collision Detection
   const ballRadius = 1
