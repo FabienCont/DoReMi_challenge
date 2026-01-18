@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import DoReMiGame from '~/components/DoReMiGame.vue'
+import { useWakeLock } from '~/composables/useWakeLock'
 
 const { getMicrophoneUserMedia } = useMediaDevices()
 const { start, isListening } = useVoiceControl()
@@ -35,8 +36,17 @@ const deactivateCamera = () => {
   stopCamera()
 }
 
+const { requestWakeLock, releaseWakeLock, handleVisibilityChange } = useWakeLock()
+
 onMounted(async () => {
   await getMicrophoneUserMedia()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  await requestWakeLock()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  releaseWakeLock()
 })
 </script>
 
