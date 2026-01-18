@@ -222,7 +222,7 @@ const onLoop = ({ delta }: { delta: number }) => {
   // Handle Height
   let targetY = BASE_HEIGHT
 
-  if (frequency.value > 30 && volume.value > 5) { // Filter noise and low volume
+  if (frequency.value > 30 && volume.value > 25) { // Filter noise and low volume
     // C3 (Midi 48) is ~130.8Hz
     const cFreq = 130.81 * Math.pow(2, props.startingOctave - 3)
     // Set min height frequency based on STARTING_NOTE_OFFSET notes (diatonic approx) below root
