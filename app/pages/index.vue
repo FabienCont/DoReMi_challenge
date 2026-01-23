@@ -43,7 +43,7 @@ const deactivateCamera = () => {
   stopCamera()
 }
 
-const { requestWakeLock, releaseWakeLock, handleVisibilityChange } = useWakeLock()
+const { releaseWakeLock, handleVisibilityChange } = useWakeLock()
 
 onMounted(async () => {
   detectPerformance()
@@ -54,7 +54,6 @@ onMounted(async () => {
   }
   await getMicrophoneUserMedia()
   document.addEventListener('visibilitychange', handleVisibilityChange)
-  await requestWakeLock()
 })
 
 watch(() => graphism.value, (newValue) => {
