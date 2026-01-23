@@ -93,9 +93,9 @@ const noteThrottled = refThrottled(note, 110)
 const scoreThrottled = refThrottled(score, 110)
 
 // Constants for physics
-const ACCELERATION_Z = -1000 // Forward acceleration (negative Z is forward)
-const MAX_SPEED_Z = -50
-const BOUNCE_FORCE = 150 // Backward force on collision
+const ACCELERATION_Z = -35 // Forward acceleration (negative Z is forward)
+const MAX_SPEED_Z = -18
+const BOUNCE_FORCE = 50 // Backward force on collision
 const FRICTION = 0.98 // Damping after collision
 const walls = ref<Wall[]>([])
 
@@ -115,8 +115,16 @@ const regenerateWalls = () => {
   walls.value = generateWalls(props.wallsNb, props.startingOctave, BASE_HEIGHT, STARTING_NOTE_OFFSET, NOTE_SCALE_FACTOR, gapSize, WALL_WIDTH, WALL_THICKNESS, TOTAL_HEIGHT)
 }
 
-const onLoop = ({ delta }: { delta: number }) => {
-  if (delta > 0.16) delta = 0.16 // Skip frames that are too long)
+let msPrev = window.performance.now()
+const onLoop = ({ delta: _delta }: { delta: number }) => {
+  const msNow = window.performance.now()
+  const msPassed = msNow - msPrev
+  msPrev = msNow
+
+  let delta = msPassed / 1000
+
+  if (delta > 0.16) delta = 0.16
+
   if (!props.gameStarted || props.isVictory || !gameReady) return
 
   const previousZ = ballPosition.value.z
@@ -161,7 +169,7 @@ const onLoop = ({ delta }: { delta: number }) => {
   }
 
   // Smooth lerp
-  ballPosition.value.y = damp(ballPosition.value.y, targetY, 8, delta)
+  ballPosition.value.y = damp(ballPosition.value.y, targetY, 4, delta)
 
   if (hasCollide(previousZ, ballPosition.value, walls.value)) {
     collision()
