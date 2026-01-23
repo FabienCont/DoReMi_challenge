@@ -17,7 +17,7 @@ self.onmessage = (e: MessageEvent) => {
   const volumeValue = rms * 1000
 
   // Threshold check
-  if (volumeValue < 15) {
+  if (volumeValue < 10) {
     self.postMessage({ frequency: -1, volume: volumeValue })
     return
   }
