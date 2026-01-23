@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue' // Added watch
-import { BasicShadowMap, SRGBColorSpace, NoToneMapping, RepeatWrapping, MathUtils, Shape, Path, ExtrudeGeometry, Vector3 } from 'three'
+import { BasicShadowMap, SRGBColorSpace, NoToneMapping, RepeatWrapping, MathUtils, Vector3 } from 'three'
 import { Text3D, useTexture } from '@tresjs/cientos'
 import { useVoiceControl } from '~/composables/useVoiceControl'
+import { refThrottled } from '@vueuse/core'
+import { DifficultySettings, type DifficultyEnum } from '~/models/DifficultyEnum'
 import type { Texture } from 'three'
+import type { GraphismEnum } from '~/models/GraphismEnum'
+import type { OctaveEnum } from '~/models/OctaveEnum'
+import type { Wall } from '~/models/wall'
 
 const config = useRuntimeConfig()
 
@@ -14,10 +19,14 @@ const fontPath = computed(() => {
 const props = defineProps<{
   isVictory: boolean
   gameStarted: boolean
-  walls: number
-  startingOctave: number
+  wallsNb: number
+  startingOctave: OctaveEnum
   cameraActivated: boolean
-  graphism: number
+  graphism: GraphismEnum
+  isHighPerformanceDevice: boolean
+  difficulty: DifficultyEnum
+  oceanActive: boolean
+  skyActive: boolean
   showFps?: boolean
 }>()
 
@@ -35,7 +44,7 @@ const damp = (current: number, target: number, lambda: number, delta: number) =>
   return MathUtils.lerp(current, target, 1 - Math.exp(-lambda * delta))
 }
 
-const { note, frequency, volume } = useVoiceControl()
+const { frequency, note, volume } = useVoiceControl()
 
 const { state: texture } = await useTexture(`${config.app.baseURL}textures/brick_diffuse.jpg`)
 if (texture.value) {
@@ -44,179 +53,93 @@ if (texture.value) {
 }
 
 const textureMap = new Map<string, Texture>()
-const getRepeatedTexture = (w?: number, h?: number) => {
-  if (!w || !h) return null
-
-  const key = `${w.toFixed(1)}_${h.toFixed(1)}`
-  if (textureMap.has(key)) return textureMap.get(key)
-
-  if (!texture.value) return null
-
-  // 1 unit = 1/5th of the texture. Adjust 5 to change density.
-  const DENSITY = 15
-
-  const t = texture.value.clone()
-  t.wrapS = RepeatWrapping
-  t.wrapT = RepeatWrapping
-  t.repeat.set(w / DENSITY, h / DENSITY)
-
-  textureMap.set(key, t)
-  return t
-}
 
 const gl = {
   clearColor: undefined, // Transparent to show camera
-  shadows: true,
+  shadows: props.isHighPerformanceDevice,
   clearAlpha: 0,
   alpha: true,
   depth: true, // Ensure depth buffer is enabled
   logarithmicDepthBuffer: true, // Fix z-fighting for distant objects
-  shadowMapType: BasicShadowMap,
+  shadowMapType: props.isHighPerformanceDevice ? BasicShadowMap : 0,
   outputColorSpace: SRGBColorSpace,
-  toneMapping: NoToneMapping
+  toneMapping: NoToneMapping,
+  antialias: props.isHighPerformanceDevice
 }
 
 // Game Settings
-const GAP_SIZE = 2.5
-const WALL_THICKNESS = 1
-const WALL_WIDTH = 10
-const TOTAL_HEIGHT = 40
-
 const NOTE_SCALE_FACTOR = 1 // Vertical distance per note
 const BASE_HEIGHT = 0.9
 const STARTING_NOTE_OFFSET = 3
 
+const BALL_RADIUS = 1
+const UNITS_PER_OCTAVE = 7 * NOTE_SCALE_FACTOR
+const UNITS_PER_SEMITONE = UNITS_PER_OCTAVE / 12
+
+const WALL_THICKNESS = 1
+const WALL_WIDTH = 10
+const TOTAL_HEIGHT = 40
+
 // State
-const gameReady = ref(false)
-const ballZ = ref(0)
-const ballY = ref(BASE_HEIGHT)
-const score = ref(0)
-const velocityZ = ref(0) // Forward velocity
+let gameReady = false
+let velocityZ = 0
+const ballPosition = shallowRef(new Vector3(0, BASE_HEIGHT, 0))
+const cameraPosition = shallowRef(new Vector3(20, 10, ballPosition.value.z + 40))
+const cameraLookAt = shallowRef(new Vector3(0, 3, ballPosition.value.z))
+const score = shallowRef(0)
+
+const frequencyThrottled = refThrottled(frequency, 110)
+const noteThrottled = refThrottled(note, 110)
+const scoreThrottled = refThrottled(score, 110)
+
 // Constants for physics
 const ACCELERATION_Z = -1000 // Forward acceleration (negative Z is forward)
 const MAX_SPEED_Z = -50
 const BOUNCE_FORCE = 150 // Backward force on collision
 const FRICTION = 0.98 // Damping after collision
-
-const getRandomColor = () => {
-  return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')
-}
-
-// Helper: Custom Geometry for wall with hole
-const createWallWithHoleGeometry = (width: number, height: number, depth: number, holeRadius: number) => {
-  const shape = new Shape()
-
-  // Draw the main rectangle centered at 0,0
-  const w2 = width / 2
-  const h2 = height / 2
-  shape.moveTo(-w2, -h2)
-  shape.lineTo(w2, -h2)
-  shape.lineTo(w2, h2)
-  shape.lineTo(-w2, h2)
-  shape.lineTo(-w2, -h2)
-
-  // Create the hole
-  const hole = new Path()
-  hole.absarc(0, 0, holeRadius, 0, Math.PI * 2, false)
-  shape.holes.push(hole)
-
-  // Extrude params
-  const extrudeSettings = {
-    depth: depth,
-    bevelEnabled: true,
-    bevelThickness: 0.1,
-    bevelSize: 0.1,
-    bevelSegments: 2,
-    curveSegments: 32 // Smoother circle
-  }
-
-  return new ExtrudeGeometry(shape, extrudeSettings)
-}
-
-// Obstacles
-// Generate a sequence of walls
-const generateWalls = (count: number) => {
-  const list = []
-  for (let i = 0; i < count; i++) {
-    // Calculate dimensions
-    // Start from 3 note higher
-    const gapCenterY = BASE_HEIGHT + ((i + STARTING_NOTE_OFFSET) * NOTE_SCALE_FACTOR)
-    const gapMin = gapCenterY - (GAP_SIZE / 2)
-    const gapMax = gapCenterY + (GAP_SIZE / 2)
-
-    const bottomHeight = Math.max(0.1, gapMin) // Ensure valid geometry
-    const topHeight = Math.max(0.1, TOTAL_HEIGHT - gapMax)
-
-    // Middle Part Dimensions
-    // Height covers the gap. Width is same as wall.
-    // Radius slightly smaller than half the gap allows the ball to pass visually but looks like a tight fit
-    // Or make it exactly the gap size. Let's make it equal to gap size for smooth visual.
-    const holeRadius = (GAP_SIZE / 2)
-    // We make the glass block slightly taller than the gap so it overlaps nicely or sits flush
-    const glassHeight = GAP_SIZE
-
-    list.push({
-      id: i,
-      z: -((i + 1) * 30), // Every 30 units
-      color: getRandomColor(),
-      note: ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'][i % 7],
-      octave: props.startingOctave + Math.floor(i / 7),
-      range: { min: gapMin, max: gapMax },
-      bottom: {
-        position: new Vector3(0, bottomHeight / 2, 0),
-        args: [WALL_WIDTH, bottomHeight, WALL_THICKNESS]
-      },
-      top: {
-        position: new Vector3(0, gapMax + (topHeight / 2), 0),
-        args: [WALL_WIDTH, topHeight, WALL_THICKNESS]
-      },
-      middle: {
-        // Extrusion starts at Z=0 and goes +depth.
-        // Wall center Z is local 0. So we shift back by half thickness
-        position: new Vector3(0, gapCenterY, -WALL_THICKNESS / 2),
-        geometry: createWallWithHoleGeometry(WALL_WIDTH, glassHeight, WALL_THICKNESS, holeRadius + 0.1) // Check +0.1 for visual clearance
-      },
-      textPosition: new Vector3(0, gapMax + 2, 1)
-    })
-  }
-  return list
-}
-const walls = ref(generateWalls(props.walls))
+const walls = ref<Wall[]>([])
 
 const startGame = async () => {
-  ballZ.value = 0
-  velocityZ.value = 0
-  walls.value = generateWalls(props.walls)
-  gameReady.value = true
-  if (props.showFps) {
-    console.log('Activating FPS Graph')
-  }
+  ballPosition.value.z = 0
+  velocityZ = 0
+  gameReady = true
+  updatePositions()
+}
+
+watch(() => [props.difficulty, props.startingOctave], () => {
+  regenerateWalls()
+})
+
+const regenerateWalls = () => {
+  const gapSize = (BALL_RADIUS * 2) + (DifficultySettings[props.difficulty].acceptableErrorSemitones * 2 * UNITS_PER_SEMITONE)
+  walls.value = generateWalls(props.wallsNb, props.startingOctave, BASE_HEIGHT, STARTING_NOTE_OFFSET, NOTE_SCALE_FACTOR, gapSize, WALL_WIDTH, WALL_THICKNESS, TOTAL_HEIGHT)
 }
 
 const onLoop = ({ delta }: { delta: number }) => {
-  if (!props.gameStarted || props.isVictory || !gameReady.value) return
+  if (delta > 0.16) delta = 0.16 // Skip frames that are too long)
+  if (!props.gameStarted || props.isVictory || !gameReady) return
 
-  const previousZ = ballZ.value
+  const previousZ = ballPosition.value.z
 
   // Physics: Forward Velocity
   // Apply "Gravity" towards forward direction (acceleration)
-  if (velocityZ.value > MAX_SPEED_Z) {
-    velocityZ.value += ACCELERATION_Z * delta
+  if (velocityZ > MAX_SPEED_Z) {
+    velocityZ += ACCELERATION_Z * delta
   }
 
   // Apply Friction (mostly useful when bouncing back)
   // Framerate independent damping:
   // If FRICTION is 1.0, this stays 1.0. If <1, it applies consistently over time.
   // We normalize to 60FPS: Math.pow(friction_per_frame, 60 * delta)
-  velocityZ.value *= Math.pow(FRICTION, delta * 60)
+  velocityZ *= Math.pow(FRICTION, delta * 60)
 
   // Update Position
-  ballZ.value += velocityZ.value * delta
+  ballPosition.value.z += velocityZ * delta
 
-  score.value = Math.abs(Math.round(ballZ.value))
+  score.value = Math.abs(Math.round(ballPosition.value.z))
 
-  if (velocityZ.value < MAX_SPEED_Z) {
-    velocityZ.value = MAX_SPEED_Z
+  if (velocityZ < MAX_SPEED_Z) {
+    velocityZ = MAX_SPEED_Z
   }
 
   // Handle Height
@@ -238,53 +161,51 @@ const onLoop = ({ delta }: { delta: number }) => {
   }
 
   // Smooth lerp
-  ballY.value = damp(ballY.value, targetY, 8, delta)
+  ballPosition.value.y = damp(ballPosition.value.y, targetY, 8, delta)
 
-  // Collision Detection
-  const ballRadius = 1
-  const collisionZoneHalfWidth = 0.5 + ballRadius
-
-  // Determine movement segment for sweep test
-  // Assuming linear movement from previousZ to ballZ.value
-  const zStart = Math.min(previousZ, ballZ.value)
-  const zEnd = Math.max(previousZ, ballZ.value)
-
-  for (const wall of walls.value) {
-    const wallMin = wall.z - collisionZoneHalfWidth
-    const wallMax = wall.z + collisionZoneHalfWidth
-
-    // Check for overlap of [zStart, zEnd] with [wallMin, wallMax]
-    // No overlap if: zEnd < wallMin OR zStart > wallMax
-    if (zEnd < wallMin || zStart > wallMax) continue
-
-    const ballBottom = ballY.value - ballRadius
-    const ballTop = ballY.value + ballRadius
-
-    if (ballBottom < wall.range.min) {
-      // Hit bottom block
-      collision()
-    } else if (ballTop > wall.range.max) {
-      // Hit top block
-      collision()
-    }
+  if (hasCollide(previousZ, ballPosition.value, walls.value)) {
+    collision()
   }
 
   // Check Victory Condition
   // If we passed the last wall by a safe margin
   const lastWall = walls.value[walls.value.length - 1]
-  if (lastWall && ballZ.value < lastWall.z - 10) {
+  if (lastWall && ballPosition.value.z < lastWall.z - 10) {
     emits('gameOver')
   }
+  updatePositions()
 }
 
 const collision = () => {
-  // Apply backward force (positive Z is backward)
-  // If we are moving fast forward (negative velocity), this reverses it
-  velocityZ.value = BOUNCE_FORCE
+  velocityZ = BOUNCE_FORCE
 }
 
-const cameraPosition = computed<[number, number, number]>(() => [20, 10, ballZ.value + 40])
-const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value])
+const updatePositions = () => {
+  updateBallPosition()
+  updateCameraPosition()
+  updateCameraLookAt()
+}
+const updateBallPosition = () => {
+  ballPosition.value = new Vector3(ballPosition.value.x, ballPosition.value.y, ballPosition.value.z)
+  triggerRef(cameraPosition)
+}
+const updateCameraPosition = () => {
+  cameraPosition.value = new Vector3(cameraPosition.value.x, cameraPosition.value.y, ballPosition.value.z + 40)
+  triggerRef(cameraPosition)
+}
+const updateCameraLookAt = () => {
+  cameraLookAt.value = new Vector3(cameraLookAt.value.x, cameraLookAt.value.y, ballPosition.value.z)
+  triggerRef(cameraLookAt)
+}
+
+const init = () => {
+  regenerateWalls()
+  updateBallPosition()
+  updateCameraPosition()
+  updateCameraLookAt()
+}
+
+init()
 </script>
 
 <template>
@@ -298,9 +219,9 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
       <div>
         <FrequencyBar
           v-if="gameStarted && !isVictory"
-          :frequency="frequency"
-          :note="note"
-          :score="score"
+          :frequency="frequencyThrottled"
+          :note="noteThrottled"
+          :score="scoreThrottled"
         />
 
         <!-- <DebugInfo v-if="gameStarted && !isVictory" :frequency="frequency" :note="note" :score="score" /> -->
@@ -316,7 +237,7 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
             :far="2000"
           />
           <!-- <TresFog color="#000000" :near="10" :far="400" /> -->
-          <Sky v-if="!cameraActivated" />
+          <Sky v-if="!cameraActivated && skyActive" />
           <template v-if="graphism !== 2">
             <TresMesh :position="[0, -0.8, -50]">
               <TresBoxGeometry :args="[14, 1, 2000]" />
@@ -327,9 +248,9 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
               />
             </TresMesh>
           </template>
-          <template v-if="graphism === 2">
+          <template v-if="!cameraActivated && oceanActive">
             <Suspense>
-              <Ocean v-if="!cameraActivated" />
+              <Ocean />
             </Suspense>
           </template>
           <TresAmbientLight
@@ -343,15 +264,28 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
           />
 
           <!-- Player Ball -->
-          <TresMesh :position="[0, ballY, ballZ]">
+          <TresMesh :position="ballPosition">
             <TresSphereGeometry :args="[1, 32, 32]" />
             <TresMeshPhysicalMaterial
+              v-if="graphism === 2 && isHighPerformanceDevice"
               :thickness="0.2"
               :roughness="0.1"
               :metalness="0.2"
               :transmission="1.0"
+              color="#22aaff"
             />
-            <!-- <TresMeshStandardMaterial color="#4444e4" /> -->
+            <TresMeshPhysicalMaterial
+              v-else-if="graphism===2 && !isHighPerformanceDevice"
+              :transparent="true"
+              :opacity="0.8"
+              :metalness="0.2"
+              :roughness="0.5"
+              color="#22aaff"
+            />
+            <TresMeshStandardMaterial
+              v-else
+              color="#22aaff"
+            />
           </TresMesh>
 
           <!-- Walls -->
@@ -384,19 +318,29 @@ const cameraLookAt = computed<[number, number, number]>(() => [0, 3, ballZ.value
               :position="wall.middle.position"
               :geometry="wall.middle.geometry"
             >
-              <MeshGlassMaterial />
+              <MeshGlassMaterial v-if="graphism === 2 && isHighPerformanceDevice" />
+              <TresMeshPhysicalMaterial
+                v-else
+                :transparent="true"
+                :opacity="0.2"
+                color="grey"
+              />
             </TresMesh>
 
             <!-- Bottom Block -->
             <TresMesh :position="wall.bottom.position">
               <TresBoxGeometry :args="[wall.bottom.args[0], wall.bottom.args[1], wall.bottom.args[2]]" />
-              <TresMeshStandardMaterial :map="getRepeatedTexture(wall.bottom.args[0], wall.bottom.args[1])" />
+              <TresMeshStandardMaterial
+                :map="getRepeatedTexture(textureMap, texture, wall.bottom.args[0], wall.bottom.args[1])"
+              />
             </TresMesh>
 
             <!-- Top Block -->
             <TresMesh :position="wall.top.position">
               <TresBoxGeometry :args="[wall.top.args[0], wall.top.args[1], wall.top.args[2]]" />
-              <TresMeshStandardMaterial :map="getRepeatedTexture(wall.top.args[0], wall.top.args[1])" />
+              <TresMeshStandardMaterial
+                :map="getRepeatedTexture(textureMap, texture, wall.top.args[0], wall.top.args[1])"
+              />
             </TresMesh>
           </TresGroup>
         </TresCanvas>

@@ -1,9 +1,15 @@
 <script lang="ts" setup>
 import type { SelectItem } from '@nuxt/ui'
+import { DifficultyEnum } from '~/models/DifficultyEnum'
+import { GraphismEnum } from '~/models/GraphismEnum'
+import { OctaveEnum } from '~/models/OctaveEnum'
 
 const octave = defineModel<number>('octave')
 const graphism = defineModel<number>('graphism')
+const difficulty = defineModel<number>('difficulty')
 const showFps = defineModel<boolean>('showFps')
+const oceanActive = defineModel<boolean>('oceanActive')
+const skyActive = defineModel<boolean>('skyActive')
 const { cameraActivated, microphoneActivated } = defineProps<{ cameraActivated: boolean, microphoneActivated: boolean }>()
 
 const emits = defineEmits<{
@@ -29,30 +35,49 @@ const activateMicrophone = () => {
 const items = ref<SelectItem[]>([
   {
     label: 'Octave 3',
-    value: 3
+    value: OctaveEnum.OCTAVE_3
   },
   {
     label: 'Octave 4',
-    value: 4
+    value: OctaveEnum.OCTAVE_4
   },
   {
     label: 'Octave 5',
-    value: 5
+    value: OctaveEnum.OCTAVE_5
   },
   {
     label: 'Octave 6',
-    value: 6
+    value: OctaveEnum.OCTAVE_6
+  }
+])
+
+const difficulties = ref<SelectItem[]>([
+  {
+    label: 'Very Easy',
+    value: DifficultyEnum.VERY_EASY
+  },
+  {
+    label: 'Easy',
+    value: DifficultyEnum.EASY
+  },
+  {
+    label: 'Medium',
+    value: DifficultyEnum.MEDIUM
+  },
+  {
+    label: 'Hard',
+    value: DifficultyEnum.HARD
   }
 ])
 
 const graphisms = ref<SelectItem[]>([
   {
     label: 'Minimalist',
-    value: 1
+    value: GraphismEnum.LOW
   },
   {
     label: 'High (not for small devices)',
-    value: 2
+    value: GraphismEnum.HIGH
   }
 ])
 </script>
@@ -88,6 +113,13 @@ const graphisms = ref<SelectItem[]>([
           :items="items"
           label="Octave"
         />
+        <p> Choose difficulty:</p>
+        <USelect
+          v-model="difficulty"
+          class="w-64"
+          :items="difficulties"
+          label="Difficulty"
+        />
         <p> Choose graphism:</p>
         <USelect
           v-model="graphism"
@@ -100,7 +132,14 @@ const graphisms = ref<SelectItem[]>([
           v-model="showFps"
           label="Show FPS"
         />
-
+        <USwitch
+          v-model="oceanActive"
+          label="Activate Ocean shader"
+        />
+        <USwitch
+          v-model="skyActive"
+          label="Activate Sky shader"
+        />
         <div>
           <UButton
             v-if="!cameraActivated"

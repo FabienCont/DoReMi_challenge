@@ -1,20 +1,20 @@
 import { ref } from 'vue'
+import PitchWorker from '@/workers/pitch.worker?worker'
 
-const frequency = ref(0)
-const note = ref('')
-const octave = ref(0)
-const noteIndex = ref(-1) // 0 for Do (C), 1 for Re (D), etc.
+const frequency = shallowRef(0)
+const note = shallowRef('')
+const octave = shallowRef(0)
+const noteIndex = shallowRef(-1) // 0 for Do (C), 1 for Re (D), etc.
 const isListening = ref(false)
 const error = ref<string | null>(null)
-const volume = ref(0)
+const volume = shallowRef(0)
 
 export const useVoiceControl = () => {
-  // Threshold to detect signal (scaled to approx match previous 0-255 range)
-  const VOLUME_THRESHOLD = 15
-
   let audioContext: AudioContext | null = null
   let analyser: AnalyserNode | null = null
   let buffer: Float32Array | null = null
+  let pitchWorker: Worker | null = null
+  let isWorkerProcessing = false
   const BUFLEN = 2048
 
   const NOTES = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si']
@@ -46,6 +46,7 @@ export const useVoiceControl = () => {
 
       buffer = new Float32Array(BUFLEN)
 
+      startWorker()
       isListening.value = true
       loop()
     } catch {
@@ -62,70 +63,36 @@ export const useVoiceControl = () => {
     if (audioContext) {
       audioContext.close()
     }
+    stopWorker()
   }
 
-  const autoCorrelate = (buf: Float32Array, sampleRate: number) => {
-    // Implements the ACF2+ algorithm
-    let SIZE = buf.length
-    let rms = 0
+  const startWorker = () => {
+    pitchWorker = new PitchWorker()
 
-    for (let i = 0; i < SIZE; i++) {
-      const val = buf[i]
-      rms += val! * val!
-    }
-    rms = Math.sqrt(rms / SIZE)
+    pitchWorker.onmessage = (e) => {
+      isWorkerProcessing = false // Worker is done, ready for next
+      const { frequency: ac, volume: vol } = e.data
 
-    // Normalize RMS to a readable volume range (0-100+) for UI/Logic compatibility
-    volume.value = rms * 1000
+      volume.value = vol
 
-    if (volume.value < VOLUME_THRESHOLD) // Not enough signal
-      return -1
-    const thres = 0.2
-    let r1 = 0, r2 = SIZE - 1
-    for (let i = 0; i < SIZE / 2; i++) {
-      if (Math.abs(buf[i]!) < thres) {
-        r1 = i
-        break
-      }
-    }
-    for (let i = 1; i < SIZE / 2; i++) {
-      if (Math.abs(buf[SIZE - i]!) < thres) {
-        r2 = SIZE - i
-        break
+      if (ac > -1) {
+        frequency.value = ac
+        analyzePitch(ac)
+      } else {
+        frequency.value = 0
+        note.value = ''
+        noteIndex.value = -1
       }
     }
 
-    buf = buf.slice(r1, r2)
-    SIZE = buf.length
+    buffer = new Float32Array(BUFLEN)
+  }
 
-    const c = new Array(SIZE).fill(0)
-    for (let i = 0; i < SIZE; i++) {
-      for (let j = 0; j < SIZE - i; j++) {
-        c[i] = c[i] + buf[j]! * buf[j + i]!
-      }
+  const stopWorker = () => {
+    if (pitchWorker) {
+      pitchWorker.terminate()
+      pitchWorker = null
     }
-
-    let d = 0
-    while (c[d] > c[d + 1]) {
-      d++
-    }
-    let maxval = -1, maxpos = -1
-    for (let i = d; i < SIZE; i++) {
-      if (c[i] > maxval) {
-        maxval = c[i]
-        maxpos = i
-      }
-    }
-    let T0 = maxpos
-
-    const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1]
-    const a = (x1 + x3 - 2 * x2) / 2
-    const b = (x3 - x1) / 2
-    if (a) {
-      T0 = T0 - b / (2 * a)
-    }
-
-    return sampleRate / T0
   }
 
   const loop = () => {
@@ -134,16 +101,15 @@ export const useVoiceControl = () => {
     // Get raw time domain data (waveform)
     analyser.getFloatTimeDomainData(buffer as Float32Array<ArrayBuffer>)
 
-    const ac = autoCorrelate(buffer, audioContext.sampleRate)
-
-    if (ac > -1) {
-      frequency.value = ac
-      analyzePitch(ac)
-    } else {
-      // If volume low or indeterminate pitch, reset
-      frequency.value = 0
-      note.value = ''
-      noteIndex.value = -1
+    if (pitchWorker && !isWorkerProcessing) {
+      isWorkerProcessing = true
+      // We must slice (copy) the buffer because passing the original buffer
+      // creates race conditions or requires transferring ownership (which empties the original)
+      const bufferToSend = buffer.slice()
+      pitchWorker.postMessage(
+        { buffer: bufferToSend, sampleRate: audioContext.sampleRate },
+        [bufferToSend.buffer] // Transferable for performance
+      )
     }
 
     if (isListening.value) {
