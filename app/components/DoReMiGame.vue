@@ -217,13 +217,25 @@ init()
     </template>
     <template #default>
       <div>
-        <FrequencyBar v-if="gameStarted && !isVictory" :frequency="frequencyThrottled" :note="noteThrottled"
-          :score="scoreThrottled" />
+        <FrequencyBar
+          v-if="gameStarted && !isVictory"
+          :frequency="frequencyThrottled"
+          :note="noteThrottled"
+          :score="scoreThrottled"
+        />
 
         <!-- <DebugInfo v-if="gameStarted && !isVictory" :frequency="frequency" :note="note" :score="score" /> -->
         <FpsGraph v-if="showFps" />
-        <TresCanvas v-bind="gl" window-size @loop="onLoop">
-          <TresPerspectiveCamera :position="cameraPosition" :look-at="cameraLookAt" :far="2000" />
+        <TresCanvas
+          v-bind="gl"
+          window-size
+          @loop="onLoop"
+        >
+          <TresPerspectiveCamera
+            :position="cameraPosition"
+            :look-at="cameraLookAt"
+            :far="2000"
+          />
           <!-- <TresFog color="#000000" :near="10" :far="400" /> -->
           <Sky v-if="!cameraActivated && skyActive" />
           <template v-if="graphism !== 2">
@@ -241,43 +253,79 @@ init()
               <Ocean :position="[0, 0.2, 0]" />
             </Suspense>
           </template>
-          <TresAmbientLight v-if="!cameraActivated" :intensity="1.5" />
-          <TresDirectionalLight :position="[10, 20, 10]" :intensity="1" :cast-shadow="!cameraActivated" />
+          <TresAmbientLight
+            v-if="!cameraActivated"
+            :intensity="1.5"
+          />
+          <TresDirectionalLight
+            :position="[10, 20, 10]"
+            :intensity="1"
+            :cast-shadow="!cameraActivated"
+          />
 
           <!-- Player Ball -->
           <TresMesh :position="ballPosition">
             <TresSphereGeometry :args="[1, 32, 32]" />
-            <TresMeshPhysicalMaterial :metalness="0.9" :roughness="0.5" color="#22aaff" />
-            
+            <TresMeshPhysicalMaterial
+              :metalness="0.9"
+              :roughness="0.5"
+              color="#22aaff"
+            />
           </TresMesh>
 
           <!-- Walls -->
-          <TresGroup v-for="wall in walls" :key="wall.id" :position="[0, 0, wall.z]">
+          <TresGroup
+            v-for="wall in walls"
+            :key="wall.id"
+            :position="[0, 0, wall.z]"
+          >
             <Suspense>
-              <Text3D center need-updates :bevel-thickness="0.1" :size="2" :position="wall.textPosition"
-                :text="`${wall.note}${wall.octave}`" :color="wall.color" :font="fontPath">
-                <TresMeshStandardMaterial :roughness="0.2" :metalness="0.1" color="#FEEEEE" />
+              <Text3D
+                center
+                need-updates
+                :bevel-thickness="0.1"
+                :size="2"
+                :position="wall.textPosition"
+                :text="`${wall.note}${wall.octave}`"
+                :color="wall.color"
+                :font="fontPath"
+              >
+                <TresMeshStandardMaterial
+                  :roughness="0.2"
+                  :metalness="0.1"
+                  color="#FEEEEE"
+                />
               </Text3D>
             </Suspense>
 
             <!-- Middle Glass Part with Hole -->
-            <TresMesh :position="wall.middle.position" :geometry="wall.middle.geometry">
-              <TresMeshPhysicalMaterial :transparent="true" :opacity="0.2" :roughness="0.2" :metalness="0.5"
-                color="grey" />
+            <TresMesh
+              :position="wall.middle.position"
+              :geometry="wall.middle.geometry"
+            >
+              <TresMeshPhysicalMaterial
+                :transparent="true"
+                :opacity="0.2"
+                :roughness="0.2"
+                :metalness="0.5"
+                color="grey"
+              />
             </TresMesh>
 
             <!-- Bottom Block -->
             <TresMesh :position="wall.bottom.position">
               <TresBoxGeometry :args="[wall.bottom.args[0], wall.bottom.args[1], wall.bottom.args[2]]" />
               <TresMeshStandardMaterial
-                :map="getRepeatedTexture(textureMap, texture, wall.bottom.args[0], wall.bottom.args[1])" />
+                :map="getRepeatedTexture(textureMap, texture, wall.bottom.args[0], wall.bottom.args[1])"
+              />
             </TresMesh>
 
             <!-- Top Block -->
             <TresMesh :position="wall.top.position">
               <TresBoxGeometry :args="[wall.top.args[0], wall.top.args[1], wall.top.args[2]]" />
               <TresMeshStandardMaterial
-                :map="getRepeatedTexture(textureMap, texture, wall.top.args[0], wall.top.args[1])" />
+                :map="getRepeatedTexture(textureMap, texture, wall.top.args[0], wall.top.args[1])"
+              />
             </TresMesh>
           </TresGroup>
         </TresCanvas>
